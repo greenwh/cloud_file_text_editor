@@ -8,13 +8,8 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2196f3">
     <link rel="apple-touch-icon" href="icons/icon-192x192.png">
-
-    <!-- CodeMirror -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/material-darker.min.css">
-
-    <!-- Highlight.js -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/atom-one-dark.min.css">
 </head>
 <body>
 
@@ -41,17 +36,27 @@
         </main>
     </div>
 
+    <!-- The new File Picker Modal -->
+    <div id="file-picker-modal" class="modal-hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-path">OneDrive</h2>
+                <button id="modal-close-button">&times;</button>
+            </div>
+            <ul id="file-list">
+                <!-- File and folder items will be inserted here by JavaScript -->
+            </ul>
+        </div>
+    </div>
+
     <!-- MSAL.js -->
     <script src="https://alcdn.msauth.net/browser/2.14.2/js/msal-browser.min.js"></script>
-
     <!-- CodeMirror -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/meta.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/mode/loadmode.js"></script>
-
-    <!-- Highlight.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
-
+    <!-- Main App Script -->
     <script src="script.js"></script>
+
 </body>
 </html>

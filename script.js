@@ -1,5 +1,5 @@
 // =================================================================
-// FINAL SCRIPT - Uses Redirect Flow
+// FINAL SCRIPT - Uses MS Graph API for File Picking
 // =================================================================
 
 // PASTE YOUR OWN CLIENT ID HERE
@@ -19,12 +19,17 @@ const msalConfig = {
 
 const msalInstance = new msal.PublicClientApplication(msalConfig);
 
+// DOM Elements
 const signinButton = document.getElementById("signin-button");
 const signoutButton = document.getElementById("signout-button");
 const mainContent = document.getElementById("main-content");
 const openFileButton = document.getElementById("open-file-button");
 const saveFileButton = document.getElementById("save-file-button");
 const fileInfo = document.getElementById("file-info");
+const modal = document.getElementById('file-picker-modal');
+const modalCloseButton = document.getElementById('modal-close-button');
+const fileList = document.getElementById('file-list');
+const modalPath = document.getElementById('modal-path');
 
 let editor;
 let currentFile = null;
@@ -36,6 +41,118 @@ editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
     readOnly: true
 });
 
+// --- MSAL Authentication ---
+function updateUI() { /* Unchanged */ }
+function signIn() { msalInstance.loginRedirect({ scopes: ["User.Read", "Files.ReadWrite"] }); }
+function signOut() { /* Unchanged */ }
+async function getToken() { /* Unchanged */ }
+
+// --- New Graph API File Picker ---
+async function showFilePicker(folderId = 'root', parentId = null) {
+    const token = await getToken();
+    if (!token) return;
+
+    fileList.innerHTML = '<li>Loading...</li>';
+    modal.classList.remove('modal-hidden');
+
+    const url = `https://graph.microsoft.com/v1.0/me/drive/${folderId}/children?$select=id,name,folder,file,parentReference`;
+    
+    try {
+        const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!response.ok) throw new Error('Failed to fetch files.');
+
+        const data = await response.json();
+        fileList.innerHTML = ''; // Clear loading message
+
+        // Add 'Go Up' item if not in the root
+        if (folderId !== 'root' && parentId) {
+            const parentItem = document.createElement('li');
+            parentItem.textContent = '..';
+            parentItem.className = 'parent';
+            parentItem.onclick = () => showFilePicker(`items/${parentId}`, null); // Simplified parent navigation
+            fileList.appendChild(parentItem);
+        }
+
+        // Add folders and files
+        data.value.forEach(item => {
+            const listItem = document.createElement('li');
+            listItem.textContent = item.name;
+            listItem.className = item.folder ? 'folder' : 'file';
+            listItem.onclick = () => handleItemClick(item);
+            fileList.appendChild(listItem);
+        });
+    } catch (error) {
+        console.error(error);
+        fileList.innerHTML = '<li>Error loading files.</li>';
+    }
+}
+
+function handleItemClick(item) {
+    if (item.folder) {
+        // If it's a folder, navigate into it
+        showFilePicker(`items/${item.id}`, item.parentReference.id);
+        modalPath.textContent = item.name;
+    } else {
+        // If it's a file, load it
+        loadFile(item);
+        closeModal();
+    }
+}
+
+async function loadFile(fileItem) {
+    const token = await getToken();
+    if (!token) return;
+
+    currentFile = fileItem; // Save file metadata
+    const url = `https://graph.microsoft.com/v1.0/me/drive/items/${fileItem.id}/content`;
+    
+    try {
+        const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!response.ok) throw new Error('Failed to download file.');
+
+        const text = await response.text();
+        editor.setValue(text);
+        editor.setOption("readOnly", false);
+        saveFileButton.disabled = false;
+        fileInfo.textContent = `Editing: ${currentFile.name}`;
+
+        const modeInfo = CodeMirror.findModeByExtension(currentFile.name.split('.').pop());
+        if (modeInfo) {
+            CodeMirror.modeURL = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/%N/%N.min.js";
+            CodeMirror.requireMode(modeInfo.mode, () => editor.setOption("mode", modeInfo.mime));
+        }
+    } catch (error) {
+        console.error(error);
+        alert('Error loading file content.');
+    }
+}
+
+function closeModal() {
+    modal.classList.add('modal-hidden');
+    modalPath.textContent = 'OneDrive';
+}
+
+async function saveFile() { /* Unchanged */ }
+
+// --- Event Listeners & Initialization ---
+openFileButton.addEventListener('click', () => showFilePicker());
+modalCloseButton.addEventListener('click', closeModal);
+
+// Handle the redirect promise
+msalInstance.handleRedirectPromise().then((response) => {
+    if (response) msalInstance.setActiveAccount(response.account);
+    updateUI();
+}).catch((error) => console.error(error));
+
+// Add other listeners and initial calls
+signinButton.addEventListener("click", signIn);
+signoutButton.addEventListener("click", signOut);
+saveFileButton.addEventListener("click", saveFile);
+
+// Service worker registration
+if ('serviceWorker' in navigator) { /* Unchanged */ }
+
+// Unchanged functions (to save space, copy from your working file)
 function updateUI() {
     const account = msalInstance.getActiveAccount();
     if (account) {
@@ -49,109 +166,19 @@ function updateUI() {
     }
 }
 
-function signIn() {
-    msalInstance.loginRedirect({
-        scopes: ["User.Read", "Files.ReadWrite"]
-    });
-}
-
-function signOut() {
-    const logoutRequest = {
-        account: msalInstance.getActiveAccount()
-    };
-    msalInstance.logoutRedirect(logoutRequest);
-}
-
 async function getToken() {
     const account = msalInstance.getActiveAccount();
-    if (!account) {
-        return null;
-    }
-    const request = {
-        scopes: ["User.Read", "Files.ReadWrite"],
-        account: account
-    };
+    if (!account) return null;
+    const request = { scopes: ["User.Read", "Files.ReadWrite"], account: account };
     try {
         const response = await msalInstance.acquireTokenSilent(request);
         return response.accessToken;
     } catch (error) {
         if (error instanceof msal.InteractionRequiredAuthError) {
-            // fallback to redirect
             msalInstance.acquireTokenRedirect(request);
-        } else {
-            console.error(error);
         }
         return null;
     }
-}
-
-async function openFile() {
-    const token = await getToken();
-    if (!token) {
-        console.error("Could not acquire token for file open.");
-        return;
-    }
-
-    const odOptions = {
-        clientId: clientId,
-        action: "query",
-        multiSelect: false,
-        advanced: {
-            redirectUri: "https://greenwh.github.io/cloud_file_text_editor/",
-            accessToken: token, // Pass the token directly
-            scopes: ["Files.Read"]
-        },
-        success: async (files) => {
-            if (files.value && files.value.length > 0) {
-                const file = files.value[0];
-                currentFile = file;
-
-                if (!file.id) {
-                    alert("Error: Could not get the ID of the selected file.");
-                    return;
-                }
-
-                const downloadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`;
-
-                try {
-                    const freshToken = await getToken(); // Get a fresh token just in case
-                    if (!freshToken) return;
-
-                    const response = await fetch(downloadUrl, {
-                        method: 'GET',
-                        headers: { 'Authorization': `Bearer ${freshToken}` }
-                    });
-                    
-                    if (response.ok) {
-                        const text = await response.text();
-                        editor.setValue(text);
-                        editor.setOption("readOnly", false);
-                        saveFileButton.disabled = false;
-                        fileInfo.textContent = `Editing: ${file.name}`;
-
-                        const modeInfo = CodeMirror.findModeByExtension(file.name.split('.').pop());
-                        if (modeInfo) {
-                            CodeMirror.modeURL = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/%N/%N.min.js";
-                            CodeMirror.requireMode(modeInfo.mode, () => {
-                                editor.setOption("mode", modeInfo.mime);
-                            });
-                        }
-                    } else {
-                        const error = await response.json();
-                        alert(`Error downloading file: ${error.error.message}`);
-                    }
-                } catch (error) {
-                    console.error("Fetch request failed:", error);
-                }
-            }
-        },
-        cancel: () => {},
-        error: (e) => {
-            console.error("OneDrive picker returned an error:", e);
-        }
-    };
-
-    OneDrive.open(odOptions);
 }
 
 async function saveFile() {
@@ -168,43 +195,13 @@ async function saveFile() {
             headers: { "Authorization": `Bearer ${token}`, "Content-Type": "text/plain" },
             body: content
         });
-        if (response.ok) {
-            alert("File saved successfully!");
-        } else {
-            const error = await response.json();
-            alert(`Error saving file: ${error.error.message}`);
-        }
+        if (response.ok) alert("File saved successfully!");
+        else { const error = await response.json(); alert(`Error saving file: ${error.error.message}`); }
     } catch (error) {
         console.error(error);
     }
 }
 
-// Handle the redirect promise
-msalInstance.handleRedirectPromise().then((response) => {
-    if (response) {
-        msalInstance.setActiveAccount(response.account);
-    }
-    updateUI();
-}).catch((error) => {
-    console.error(error);
-});
-
-// Event Listeners
-signinButton.addEventListener("click", signIn);
-signoutButton.addEventListener("click", signOut);
-openFileButton.addEventListener("click", openFile);
-saveFileButton.addEventListener("click", saveFile);
-
-// Load OneDrive File Picker SDK
-(function(d, s, id) {
-    var js, fjs = d.getElementsByTagName(s)[0];
-    if (d.getElementById(id)) return;
-    js = d.createElement(s); js.id = id;
-    js.src = "https://js.live.net/v7.2/OneDrive.js";
-    fjs.parentNode.insertBefore(js, fjs);
-}(document, 'script', 'onedrive-js'));
-
-// Service worker registration
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('service-worker.js', { scope: './' }).then(registration => {
