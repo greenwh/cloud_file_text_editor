@@ -1,39 +1,52 @@
-const CACHE_NAME = 'onedrive-text-editor-cache-v5';
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/script.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/material-darker.min.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/atom-one-dark.min.css',
-  'https://alcdn.msauth.net/browser/2.14.2/js/msal-browser.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/meta.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/mode/loadmode.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js',
-  'https://js.live.net/v7.2/OneDrive.js'
-];
+// =================================================================
+// FINAL SERVICE WORKER - Uses Cache-First Strategy
+// =================================================================
 
+const CACHE_NAME = 'onedrive-text-editor-cache-v6'; // Incremented cache name
+
+// On install, activate immediately
 self.addEventListener('install', event => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', event => {
+  // Clean up old caches
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cache => {
+          if (cache !== CACHE_NAME) {
+            return caches.delete(cache);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
   );
 });
 
+// On fetch, use a cache-first strategy
 self.addEventListener('fetch', event => {
+  // We only want to cache GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request)
-      .then(response => {
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.match(event.request).then(response => {
+        // Return the cached response if it exists
         if (response) {
           return response;
         }
-        return fetch(event.request);
-      }
-    )
+
+        // Otherwise, fetch from the network
+        return fetch(event.request).then(networkResponse => {
+          // Cache the new response
+          cache.put(event.request, networkResponse.clone());
+          // and return it to the page
+          return networkResponse;
+        });
+      });
+    })
   );
 });

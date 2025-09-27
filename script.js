@@ -1,5 +1,9 @@
-// Replace with your own Client ID
-const clientId = "72445ccf-a776-4d59-a35e-eb790a5db442";
+// =================================================================
+// FINAL SCRIPT - Uses Redirect Flow
+// =================================================================
+
+// PASTE YOUR OWN CLIENT ID HERE
+const clientId = "YOUR_CLIENT_ID_HERE";
 
 const msalConfig = {
     auth: {
@@ -33,8 +37,8 @@ editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
 });
 
 function updateUI() {
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) {
+    const account = msalInstance.getActiveAccount();
+    if (account) {
         signinButton.style.display = "none";
         signoutButton.style.display = "block";
         mainContent.style.display = "flex";
@@ -45,42 +49,38 @@ function updateUI() {
     }
 }
 
-async function signIn() {
-    try {
-        await msalInstance.loginPopup({
-            scopes: ["User.Read", "Files.ReadWrite"]
-        });
-        updateUI();
-    } catch (error) {
-        console.error(error);
-    }
+function signIn() {
+    msalInstance.loginRedirect({
+        scopes: ["User.Read", "Files.ReadWrite"]
+    });
 }
 
 function signOut() {
     const logoutRequest = {
-        account: msalInstance.getAllAccounts()[0]
+        account: msalInstance.getActiveAccount()
     };
-    msalInstance.logoutPopup(logoutRequest);
-    updateUI();
+    msalInstance.logoutRedirect(logoutRequest);
 }
 
 async function getToken() {
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length === 0) {
+    const account = msalInstance.getActiveAccount();
+    if (!account) {
         return null;
     }
     const request = {
         scopes: ["User.Read", "Files.ReadWrite"],
-        account: accounts[0]
+        account: account
     };
     try {
         const response = await msalInstance.acquireTokenSilent(request);
         return response.accessToken;
     } catch (error) {
         if (error instanceof msal.InteractionRequiredAuthError) {
-            return msalInstance.acquireTokenPopup(request).then(response => response.accessToken);
+            // fallback to redirect
+            msalInstance.acquireTokenRedirect(request);
+        } else {
+            console.error(error);
         }
-        console.error(error);
         return null;
     }
 }
@@ -88,7 +88,7 @@ async function getToken() {
 async function openFile() {
     const token = await getToken();
     if (!token) {
-        alert("Could not get access token.");
+        console.error("Could not acquire token for file open.");
         return;
     }
 
@@ -98,28 +98,28 @@ async function openFile() {
         multiSelect: false,
         advanced: {
             redirectUri: "https://greenwh.github.io/cloud_file_text_editor/",
-            scopes: ["Files.Read"] // Scope for the picker UI
+            accessToken: token, // Pass the token directly
+            scopes: ["Files.Read"]
         },
         success: async (files) => {
             if (files.value && files.value.length > 0) {
                 const file = files.value[0];
-                currentFile = file; // Save the file metadata (id, name) for the save function
+                currentFile = file;
 
                 if (!file.id) {
                     alert("Error: Could not get the ID of the selected file.");
                     return;
                 }
 
-                // THIS IS THE CRITICAL PART: We build the URL ourselves using the file's ID.
                 const downloadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`;
 
                 try {
-                    // We make an authenticated request directly to the Microsoft Graph API.
+                    const freshToken = await getToken(); // Get a fresh token just in case
+                    if (!freshToken) return;
+
                     const response = await fetch(downloadUrl, {
                         method: 'GET',
-                        headers: {
-                            'Authorization': `Bearer ${token}` // Use the token we acquired earlier
-                        }
+                        headers: { 'Authorization': `Bearer ${freshToken}` }
                     });
                     
                     if (response.ok) {
@@ -129,32 +129,25 @@ async function openFile() {
                         saveFileButton.disabled = false;
                         fileInfo.textContent = `Editing: ${file.name}`;
 
-                        // Auto-detect and set mode
                         const modeInfo = CodeMirror.findModeByExtension(file.name.split('.').pop());
                         if (modeInfo) {
                             CodeMirror.modeURL = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/%N/%N.min.js";
                             CodeMirror.requireMode(modeInfo.mode, () => {
                                 editor.setOption("mode", modeInfo.mime);
                             });
-                        } else {
-                            editor.setOption("mode", null);
                         }
                     } else {
                         const error = await response.json();
                         alert(`Error downloading file: ${error.error.message}`);
                     }
                 } catch (error) {
-                    alert("An error occurred while fetching the file content.");
                     console.error("Fetch request failed:", error);
                 }
             }
         },
-        cancel: () => {
-            console.log("File picker was cancelled.");
-        },
+        cancel: () => {},
         error: (e) => {
             console.error("OneDrive picker returned an error:", e);
-            alert("An error occurred with the OneDrive file picker.");
         }
     };
 
@@ -162,16 +155,9 @@ async function openFile() {
 }
 
 async function saveFile() {
-    if (!currentFile) {
-        alert("No file is currently open.");
-        return;
-    }
-
+    if (!currentFile) return;
     const token = await getToken();
-    if (!token) {
-        alert("Could not get access token.");
-        return;
-    }
+    if (!token) return;
 
     const content = editor.getValue();
     const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${currentFile.id}/content`;
@@ -179,13 +165,9 @@ async function saveFile() {
     try {
         const response = await fetch(uploadUrl, {
             method: "PUT",
-            headers: {
-                "Authorization": `Bearer ${token}`,
-                "Content-Type": "text/plain"
-            },
+            headers: { "Authorization": `Bearer ${token}`, "Content-Type": "text/plain" },
             body: content
         });
-
         if (response.ok) {
             alert("File saved successfully!");
         } else {
@@ -194,18 +176,24 @@ async function saveFile() {
         }
     } catch (error) {
         console.error(error);
-        alert("An error occurred while saving the file.");
     }
 }
+
+// Handle the redirect promise
+msalInstance.handleRedirectPromise().then((response) => {
+    if (response) {
+        msalInstance.setActiveAccount(response.account);
+    }
+    updateUI();
+}).catch((error) => {
+    console.error(error);
+});
 
 // Event Listeners
 signinButton.addEventListener("click", signIn);
 signoutButton.addEventListener("click", signOut);
 openFileButton.addEventListener("click", openFile);
 saveFileButton.addEventListener("click", saveFile);
-
-// Initial UI update
-updateUI();
 
 // Load OneDrive File Picker SDK
 (function(d, s, id) {
@@ -216,10 +204,10 @@ updateUI();
     fjs.parentNode.insertBefore(js, fjs);
 }(document, 'script', 'onedrive-js'));
 
-// Register service worker
+// Service worker registration
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js', { scope: './' }).then(registration => {
+        navigator.serviceWorker.register('service-worker.js', { scope: './' }).then(registration => {
             console.log('ServiceWorker registration successful with scope: ', registration.scope);
         }, err => {
             console.log('ServiceWorker registration failed: ', err);
