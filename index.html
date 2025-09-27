@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>OneDrive Text Editor</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2196f3">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+
+    <!-- CodeMirror -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/material-darker.min.css">
+
+    <!-- Highlight.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/atom-one-dark.min.css">
+</head>
+<body>
+
+    <div id="app">
+        <header>
+            <h1>OneDrive Text Editor</h1>
+            <div id="auth-container">
+                <button id="signin-button">Sign In with Microsoft</button>
+                <button id="signout-button" style="display: none;">Sign Out</button>
+            </div>
+        </header>
+
+        <main id="main-content" style="display: none;">
+            <div id="file-controls">
+                <button id="open-file-button">Open File from OneDrive</button>
+                <button id="save-file-button" disabled>Save File</button>
+            </div>
+            <div id="editor-container">
+                <textarea id="editor"></textarea>
+            </div>
+            <div id="file-info">
+                <p>No file selected.</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- MSAL.js -->
+    <script src="https://alcdn.msauth.net/browser/2.14.2/js/msal-browser.min.js"></script>
+
+    <!-- CodeMirror -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/meta.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/mode/loadmode.js"></script>
+
+    <!-- Highlight.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+    <script src="script.js"></script>
+</body>
+</html>
