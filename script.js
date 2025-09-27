@@ -86,51 +86,84 @@ async function getToken() {
 }
 
 async function openFile() {
+    console.log("Attempting to open a file...");
     const token = await getToken();
     if (!token) {
         alert("Could not get access token.");
+        console.error("Failed to get access token.");
         return;
     }
+    console.log("Access token acquired successfully.");
 
     const odOptions = {
         clientId: clientId,
         action: "query",
         multiSelect: false,
         advanced: {
-            redirectUri: window.location.origin,
+            redirectUri: "https://greenwh.github.io/cloud_file_text_editor/",
             endpointHint: "api.onedrive.com",
             accessToken: token,
             scopes: ["Files.ReadWrite"]
         },
         success: async (files) => {
-            if (files.value.length > 0) {
+            console.log("OneDrive picker success callback triggered.");
+            // LOG 1: See the entire raw response from the picker
+            console.log("Full response from picker:", files);
+
+            if (files.value && files.value.length > 0) {
                 const file = files.value[0];
+                // LOG 2: See the specific file object we are trying to use
+                console.log("Selected file object:", file);
+
                 currentFile = file;
                 const downloadUrl = file["@microsoft.graph.downloadUrl"];
-                const response = await fetch(downloadUrl);
-                const text = await response.text();
-                editor.setValue(text);
-                editor.setOption("readOnly", false);
-                saveFileButton.disabled = false;
-                fileInfo.textContent = `Editing: ${file.name}`;
+                // LOG 3: See the exact URL we are about to download from
+                console.log("Using download URL:", downloadUrl);
 
-                // Auto-detect and set mode
-                const modeInfo = CodeMirror.findModeByExtension(file.name.split('.').pop());
-                if (modeInfo) {
-                    CodeMirror.modeURL = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/%N/%N.min.js";
-                    CodeMirror.requireMode(modeInfo.mode, () => {
-                        editor.setOption("mode", modeInfo.mime);
-                    });
-                } else {
-                    editor.setOption("mode", null);
+                if (!downloadUrl) {
+                    alert("Error: The selected file does not have a download URL. This can happen with folders or special items.");
+                    console.error("Missing @microsoft.graph.downloadUrl property on file object.");
+                    return;
                 }
+
+                try {
+                    const response = await fetch(downloadUrl);
+                    const text = await response.text();
+                    
+                    if (response.ok) {
+                        editor.setValue(text);
+                        editor.setOption("readOnly", false);
+                        saveFileButton.disabled = false;
+                        fileInfo.textContent = `Editing: ${file.name}`;
+
+                        // Auto-detect and set mode
+                        const modeInfo = CodeMirror.findModeByExtension(file.name.split('.').pop());
+                        if (modeInfo) {
+                            CodeMirror.modeURL = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/%N/%N.min.js";
+                            CodeMirror.requireMode(modeInfo.mode, () => {
+                                editor.setOption("mode", modeInfo.mime);
+                            });
+                        } else {
+                            editor.setOption("mode", null);
+                        }
+                    } else {
+                        alert(`Failed to download file. Status: ${response.status}`);
+                        console.error("Failed to fetch file content.", text);
+                    }
+                } catch (error) {
+                    alert("An error occurred while fetching the file content.");
+                    console.error("Fetch request failed:", error);
+                }
+            } else {
+                console.warn("Picker success callback was called, but no files were selected or returned in the 'value' array.");
             }
         },
         cancel: () => {
             console.log("File picker was cancelled.");
         },
         error: (e) => {
-            console.error(e);
+            console.error("OneDrive picker returned an error:", e);
+            alert("An error occurred with the OneDrive file picker.");
         }
     };
 
