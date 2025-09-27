@@ -5,7 +5,7 @@ const msalConfig = {
     auth: {
         clientId: clientId,
         authority: "https://login.microsoftonline.com/common",
-        redirectUri: window.location.origin
+        redirectUri: "https://greenwh.github.io/cloud_file_text_editor/"
     },
     cache: {
         cacheLocation: "sessionStorage",
