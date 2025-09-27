@@ -98,29 +98,27 @@ async function openFile() {
         multiSelect: false,
         advanced: {
             redirectUri: "https://greenwh.github.io/cloud_file_text_editor/",
-            // NOTE: We only need read access for the picker itself.
-            // The token we get from getToken() has the ReadWrite scope for Graph API calls.
-            scopes: ["Files.Read"]
+            scopes: ["Files.Read"] // Scope for the picker UI
         },
         success: async (files) => {
             if (files.value && files.value.length > 0) {
                 const file = files.value[0];
-                currentFile = file; // Save the file metadata for later (like the ID and name)
+                currentFile = file; // Save the file metadata (id, name) for the save function
 
                 if (!file.id) {
                     alert("Error: Could not get the ID of the selected file.");
                     return;
                 }
 
-                // Construct the Graph API URL to get the file content
+                // THIS IS THE CRITICAL PART: We build the URL ourselves using the file's ID.
                 const downloadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`;
 
                 try {
-                    // Make an authenticated request to the Graph API
+                    // We make an authenticated request directly to the Microsoft Graph API.
                     const response = await fetch(downloadUrl, {
                         method: 'GET',
                         headers: {
-                            'Authorization': `Bearer ${token}`
+                            'Authorization': `Bearer ${token}` // Use the token we acquired earlier
                         }
                     });
                     
@@ -142,7 +140,6 @@ async function openFile() {
                             editor.setOption("mode", null);
                         }
                     } else {
-                        // If the request fails, show an error
                         const error = await response.json();
                         alert(`Error downloading file: ${error.error.message}`);
                     }
@@ -222,7 +219,7 @@ updateUI();
 // Register service worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js').then(registration => {
+        navigator.serviceWorker.register('./service-worker.js', { scope: './' }).then(registration => {
             console.log('ServiceWorker registration successful with scope: ', registration.scope);
         }, err => {
             console.log('ServiceWorker registration failed: ', err);

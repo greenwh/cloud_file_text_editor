@@ -1,4 +1,4 @@
-const CACHE_NAME = 'onedrive-text-editor-cache-v4';
+const CACHE_NAME = 'onedrive-text-editor-cache-v5';
 const urlsToCache = [
   '/',
   '/index.html',
