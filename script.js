@@ -86,14 +86,11 @@ async function getToken() {
 }
 
 async function openFile() {
-    console.log("Attempting to open a file...");
     const token = await getToken();
     if (!token) {
         alert("Could not get access token.");
-        console.error("Failed to get access token.");
         return;
     }
-    console.log("Access token acquired successfully.");
 
     const odOptions = {
         clientId: clientId,
@@ -101,36 +98,34 @@ async function openFile() {
         multiSelect: false,
         advanced: {
             redirectUri: "https://greenwh.github.io/cloud_file_text_editor/",
-            endpointHint: "api.onedrive.com",
-            accessToken: token,
-            scopes: ["Files.ReadWrite"]
+            // NOTE: We only need read access for the picker itself.
+            // The token we get from getToken() has the ReadWrite scope for Graph API calls.
+            scopes: ["Files.Read"]
         },
         success: async (files) => {
-            console.log("OneDrive picker success callback triggered.");
-            // LOG 1: See the entire raw response from the picker
-            console.log("Full response from picker:", files);
-
             if (files.value && files.value.length > 0) {
                 const file = files.value[0];
-                // LOG 2: See the specific file object we are trying to use
-                console.log("Selected file object:", file);
+                currentFile = file; // Save the file metadata for later (like the ID and name)
 
-                currentFile = file;
-                const downloadUrl = file["@microsoft.graph.downloadUrl"];
-                // LOG 3: See the exact URL we are about to download from
-                console.log("Using download URL:", downloadUrl);
-
-                if (!downloadUrl) {
-                    alert("Error: The selected file does not have a download URL. This can happen with folders or special items.");
-                    console.error("Missing @microsoft.graph.downloadUrl property on file object.");
+                if (!file.id) {
+                    alert("Error: Could not get the ID of the selected file.");
                     return;
                 }
 
+                // Construct the Graph API URL to get the file content
+                const downloadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${file.id}/content`;
+
                 try {
-                    const response = await fetch(downloadUrl);
-                    const text = await response.text();
+                    // Make an authenticated request to the Graph API
+                    const response = await fetch(downloadUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
                     
                     if (response.ok) {
+                        const text = await response.text();
                         editor.setValue(text);
                         editor.setOption("readOnly", false);
                         saveFileButton.disabled = false;
@@ -147,15 +142,14 @@ async function openFile() {
                             editor.setOption("mode", null);
                         }
                     } else {
-                        alert(`Failed to download file. Status: ${response.status}`);
-                        console.error("Failed to fetch file content.", text);
+                        // If the request fails, show an error
+                        const error = await response.json();
+                        alert(`Error downloading file: ${error.error.message}`);
                     }
                 } catch (error) {
                     alert("An error occurred while fetching the file content.");
                     console.error("Fetch request failed:", error);
                 }
-            } else {
-                console.warn("Picker success callback was called, but no files were selected or returned in the 'value' array.");
             }
         },
         cancel: () => {
@@ -228,7 +222,7 @@ updateUI();
 // Register service worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js').then(registration => {
+        navigator.serviceWorker.register('service-worker.js').then(registration => {
             console.log('ServiceWorker registration successful with scope: ', registration.scope);
         }, err => {
             console.log('ServiceWorker registration failed: ', err);
