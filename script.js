@@ -3,7 +3,7 @@
 // =================================================================
 
 // PASTE YOUR OWN CLIENT ID HERE
-const clientId = "YOUR_CLIENT_ID_HERE";
+const clientId = "72445ccf-a776-4d59-a35e-eb790a5db442";
 
 const msalConfig = {
     auth: {
