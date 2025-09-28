@@ -2,7 +2,7 @@
 // FINAL SERVICE WORKER - Uses Cache-First Strategy
 // =================================================================
 
-const CACHE_NAME = 'onedrive-text-editor-cache-v8'; // Incremented cache name
+const CACHE_NAME = 'onedrive-text-editor-cache-v9'; // Incremented cache name
 
 // On install, activate immediately
 self.addEventListener('install', event => {
@@ -24,13 +24,25 @@ self.addEventListener('activate', event => {
   );
 });
 
-// On fetch, use a cache-first strategy
+// On fetch, use a cache-first strategy for assets, network-only for APIs
 self.addEventListener('fetch', event => {
-  // We only want to cache GET requests
+  // We only want to process GET requests
   if (event.request.method !== 'GET') {
     return;
   }
+  
+  const requestUrl = new URL(event.request.url);
 
+  // *** START OF FIX ***
+  // If the request is for the Microsoft Graph API, always fetch from the network.
+  if (requestUrl.hostname === 'graph.microsoft.com') {
+    // Respond with a network request. Do not cache the result.
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  // *** END OF FIX ***
+
+  // For all other requests (our app assets), use the cache-first strategy.
   event.respondWith(
     caches.open(CACHE_NAME).then(cache => {
       return cache.match(event.request).then(response => {
@@ -41,7 +53,7 @@ self.addEventListener('fetch', event => {
 
         // Otherwise, fetch from the network
         return fetch(event.request).then(networkResponse => {
-          // Cache the new response
+          // Cache the new response for app assets
           cache.put(event.request, networkResponse.clone());
           // and return it to the page
           return networkResponse;

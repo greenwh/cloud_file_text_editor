@@ -1,0 +1,11 @@
+when i save changes they are correct in onedrive but if i reload that same file its an old version  cached i assume
+
+sometimes when i open a file the text is over the line numbers
+
+scrolling is clumsy, text doesnt always move in the text window simetimes the cursor is outside the text windiw in the white space
+
+file closer
+
+save as
+
+
