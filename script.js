@@ -30,16 +30,61 @@ const modal = document.getElementById('file-picker-modal');
 const modalCloseButton = document.getElementById('modal-close-button');
 const fileList = document.getElementById('file-list');
 const modalPath = document.getElementById('modal-path');
+const newFileButton = document.getElementById('new-file-button');
+const saveAsButton = document.getElementById('save-as-button');
+const closeFileButton = document.getElementById('close-file-button');
+const wordWrapButton = document.getElementById('word-wrap-button');
 
 let editor;
 let currentFile = null;
+let isDirty = false;
 
 // Initialize CodeMirror
 editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
     lineNumbers: true,
     theme: "material-darker",
-    readOnly: true
+    readOnly: true,
+    lineWrapping: false // Word wrap is off by default
 });
+
+editor.on("change", () => {
+    isDirty = true;
+});
+
+// --- New File Management Functions ---
+function newFile() {
+    if (isDirty && !confirm("You have unsaved changes. Are you sure you want to start a new file?")) {
+        return;
+    }
+    currentFile = { name: "Untitled.txt", id: null }; // Temporary file object
+    editor.setValue("");
+    editor.setOption("readOnly", false);
+    fileInfo.textContent = "Editing: " + currentFile.name;
+    saveFileButton.disabled = true; // Cannot save a new file without a path
+    saveAsButton.disabled = false;
+    closeFileButton.disabled = false;
+    isDirty = false;
+}
+
+function closeFile() {
+    if (isDirty && !confirm("You have unsaved changes. Are you sure you want to close the file?")) {
+        return;
+    }
+    currentFile = null;
+    editor.setValue("");
+    editor.setOption("readOnly", true);
+    fileInfo.textContent = "No file selected.";
+    saveFileButton.disabled = true;
+    saveAsButton.disabled = true;
+    closeFileButton.disabled = true;
+    isDirty = false;
+}
+
+function toggleWordWrap() {
+    const isWrapping = editor.getOption("lineWrapping");
+    editor.setOption("lineWrapping", !isWrapping);
+    wordWrapButton.style.backgroundColor = !isWrapping ? '#a0a0a0' : '#e0e0e0';
+}
 
 // --- MSAL Authentication ---
 function updateUI() { /* Unchanged */ }
@@ -114,7 +159,10 @@ async function loadFile(fileItem) {
         editor.setValue(text);
         editor.setOption("readOnly", false);
         saveFileButton.disabled = false;
+        closeFileButton.disabled = false;
+        saveAsButton.disabled = false;
         fileInfo.textContent = `Editing: ${currentFile.name}`;
+        isDirty = false;
 
         const modeInfo = CodeMirror.findModeByExtension(currentFile.name.split('.').pop());
         if (modeInfo) {
@@ -148,6 +196,9 @@ msalInstance.handleRedirectPromise().then((response) => {
 signinButton.addEventListener("click", signIn);
 signoutButton.addEventListener("click", signOut);
 saveFileButton.addEventListener("click", saveFile);
+newFileButton.addEventListener("click", newFile);
+closeFileButton.addEventListener("click", closeFile);
+wordWrapButton.addEventListener("click", toggleWordWrap);
 
 // Service worker registration
 if ('serviceWorker' in navigator) { /* Unchanged */ }
@@ -195,8 +246,13 @@ async function saveFile() {
             headers: { "Authorization": `Bearer ${token}`, "Content-Type": "text/plain" },
             body: content
         });
-        if (response.ok) alert("File saved successfully!");
-        else { const error = await response.json(); alert(`Error saving file: ${error.error.message}`); }
+        if (response.ok) {
+            alert("File saved successfully!");
+            isDirty = false; // Reset dirty flag
+        } else { 
+            const error = await response.json(); 
+            alert(`Error saving file: ${error.error.message}`); 
+        }
     } catch (error) {
         console.error(error);
     }
