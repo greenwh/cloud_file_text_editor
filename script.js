@@ -297,6 +297,11 @@ saveFileButton.addEventListener("click", saveFile);
 newFileButton.addEventListener("click", newFile);
 closeFileButton.addEventListener("click", closeFile);
 wordWrapButton.addEventListener("click", toggleWordWrap);
+window.addEventListener('resize', () => {
+    if (editor) {
+        editor.refresh();
+    }
+});
 
 // Service worker registration
 if ('serviceWorker' in navigator) { /* Unchanged */ }
