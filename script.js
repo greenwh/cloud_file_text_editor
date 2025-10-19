@@ -100,6 +100,18 @@ function updateEditorSize() {
 }
 
 // --- MSAL Authentication ---
+function signIn() {
+    msalInstance.loginRedirect({ scopes: ["User.Read", "Files.ReadWrite"] });
+}
+
+function signOut() {
+    const logoutRequest = {
+        account: msalInstance.getActiveAccount(),
+        postLogoutRedirectUri: msalConfig.auth.redirectUri,
+    };
+    msalInstance.logoutRedirect(logoutRequest);
+}
+
 function updateUI() {
     const account = msalInstance.getActiveAccount();
     if (account) {
@@ -331,69 +343,21 @@ wordWrapButton.addEventListener("click", toggleWordWrap);
 window.addEventListener('resize', updateEditorSize);
 
 // Service worker registration
-if ('serviceWorker' in navigator) { /* Unchanged */ }
-
-// Unchanged functions (to save space, copy from your working file)
-function updateUI() {
-    const account = msalInstance.getActiveAccount();
-    if (account) {
-        signinButton.style.display = "none";
-        signoutButton.style.display = "block";
-        mainContent.style.display = "flex";
-    } else {
-        signinButton.style.display = "block";
-        signoutButton.style.display = "none";
-        mainContent.style.display = "none";
-    }
-}
-
-async function getToken() {
-    const account = msalInstance.getActiveAccount();
-    if (!account) return null;
-    const request = { scopes: ["User.Read", "Files.ReadWrite"], account: account };
-    try {
-        const response = await msalInstance.acquireTokenSilent(request);
-        return response.accessToken;
-    } catch (error) {
-        if (error instanceof msal.InteractionRequiredAuthError) {
-            msalInstance.acquireTokenRedirect(request);
-        }
-        return null;
-    }
-}
-
-async function saveFile() {
-    if (!currentFile) return;
-    const token = await getToken();
-    if (!token) return;
-
-    const content = editor.getValue();
-    const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${currentFile.id}/content`;
-
-    try {
-        const response = await fetch(uploadUrl, {
-            method: "PUT",
-            headers: { "Authorization": `Bearer ${token}`, "Content-Type": "text/plain" },
-            body: content
-        });
-        if (response.ok) {
-            alert("File saved successfully!");
-            isDirty = false; // Reset dirty flag
-        } else { 
-            const error = await response.json(); 
-            alert(`Error saving file: ${error.error.message}`); 
-        }
-    } catch (error) {
-        console.error(error);
-    }
-}
 
 if ('serviceWorker' in navigator) {
+
     window.addEventListener('load', () => {
+
         navigator.serviceWorker.register('service-worker.js', { scope: './' }).then(registration => {
+
             console.log('ServiceWorker registration successful with scope: ', registration.scope);
+
         }, err => {
+
             console.log('ServiceWorker registration failed: ', err);
+
         });
+
     });
+
 }
