@@ -5,6 +5,7 @@ body, html {
     background-color: #f4f4f9;
     color: #333;
     height: 100%;
+    overflow: hidden; /* Prevent body scrolling */
 }
 
 #app {
@@ -21,6 +22,7 @@ header {
     justify-content: space-between;
     align-items: center;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    flex-shrink: 0; /* Prevent header from shrinking */
 }
 
 header h1 {
@@ -43,7 +45,7 @@ main {
     display: flex;
     flex-direction: column;
     padding: 0.5rem;
-    overflow: hidden;
+    overflow: hidden; /* Prevent main from overflowing */
 }
 
 #file-controls {
@@ -51,6 +53,7 @@ main {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+    flex-shrink: 0; /* Prevent controls from shrinking */
 }
 
 #file-controls button {
@@ -75,6 +78,7 @@ main {
     border-radius: 4px;
     overflow: hidden;
     display: flex; /* Ensure CodeMirror fills this container */
+    min-height: 0; /* Important for flex-grow in a column layout */
 }
 
 .CodeMirror {
@@ -93,6 +97,7 @@ main {
     font-style: italic;
     color: #666;
     text-align: center;
+    flex-shrink: 0; /* Prevent info from shrinking */
 }
 
 /* Modal Styles */

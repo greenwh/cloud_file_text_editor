@@ -34,10 +34,15 @@ const newFileButton = document.getElementById('new-file-button');
 const saveAsButton = document.getElementById('save-as-button');
 const closeFileButton = document.getElementById('close-file-button');
 const wordWrapButton = document.getElementById('word-wrap-button');
+const saveAsContainer = document.getElementById('save-as-container');
+const saveAsFilenameInput = document.getElementById('save-as-filename');
+const saveAsConfirmButton = document.getElementById('save-as-confirm-button');
 
 let editor;
 let currentFile = null;
 let isDirty = false;
+let isSaveAs = false;
+let currentFolderId = 'root';
 
 // Initialize CodeMirror
 editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
@@ -97,8 +102,13 @@ async function showFilePicker(folderId = 'root', parentId = null) {
     const token = await getToken();
     if (!token) return;
 
+    currentFolderId = folderId.startsWith('items/') ? folderId.substring(6) : folderId;
     fileList.innerHTML = '<li>Loading...</li>';
     modal.classList.remove('modal-hidden');
+    saveAsContainer.style.display = isSaveAs ? 'flex' : 'none';
+    if (isSaveAs) {
+        saveAsFilenameInput.value = currentFile?.name || 'Untitled.txt';
+    }
 
     const url = `https://graph.microsoft.com/v1.0/me/drive/${folderId}/children?$select=id,name,folder,file,parentReference`;
     
@@ -123,7 +133,11 @@ async function showFilePicker(folderId = 'root', parentId = null) {
             const listItem = document.createElement('li');
             listItem.textContent = item.name;
             listItem.className = item.folder ? 'folder' : 'file';
-            listItem.onclick = () => handleItemClick(item);
+            if (isSaveAs && item.file) {
+                listItem.classList.add('disabled'); // Disable files in Save As mode
+            } else {
+                listItem.onclick = () => handleItemClick(item);
+            }
             fileList.appendChild(listItem);
         });
     } catch (error) {
@@ -137,8 +151,8 @@ function handleItemClick(item) {
         // If it's a folder, navigate into it
         showFilePicker(`items/${item.id}`, item.parentReference.id);
         modalPath.textContent = item.name;
-    } else {
-        // If it's a file, load it
+    } else if (!isSaveAs) {
+        // If it's a file and not in Save As mode, load it
         loadFile(item);
         closeModal();
     }
@@ -157,6 +171,7 @@ async function loadFile(fileItem) {
 
         const text = await response.text();
         editor.setValue(text);
+        setTimeout(() => editor.refresh(), 1); // Force a refresh to fix layout issues
         editor.setOption("readOnly", false);
         saveFileButton.disabled = false;
         closeFileButton.disabled = false;
@@ -178,12 +193,94 @@ async function loadFile(fileItem) {
 function closeModal() {
     modal.classList.add('modal-hidden');
     modalPath.textContent = 'OneDrive';
+    isSaveAs = false; // Reset Save As mode on close
 }
 
-async function saveFile() { /* Unchanged */ }
+async function saveFile() {
+    if (!currentFile) return;
+
+    // If the file is new (has no ID), force a "Save As" flow
+    if (!currentFile.id) {
+        isSaveAs = true;
+        showFilePicker();
+        return;
+    }
+
+    const token = await getToken();
+    if (!token) return;
+
+    const content = editor.getValue();
+    const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${currentFile.id}/content`;
+
+    try {
+        const response = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: { "Authorization": `Bearer ${token}`, "Content-Type": "text/plain" },
+            body: content
+        });
+        if (response.ok) {
+            alert("File saved successfully!");
+            isDirty = false; // Reset dirty flag
+        } else { 
+            const error = await response.json(); 
+            alert(`Error saving file: ${error.error.message}`); 
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+async function saveFileAs() {
+    const filename = saveAsFilenameInput.value;
+    if (!filename) {
+        alert("Please enter a filename.");
+        return;
+    }
+
+    const token = await getToken();
+    if (!token) return;
+
+    const content = editor.getValue();
+    // Use the Graph API endpoint for creating a new file in a specific folder
+    const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${currentFolderId}:/${filename}:/content`;
+
+    try {
+        const response = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: { "Authorization": `Bearer ${token}`, "Content-Type": "text/plain" },
+            body: content
+        });
+
+        if (response.ok) {
+            alert("File saved successfully!");
+            const newFileData = await response.json();
+            currentFile = newFileData; // Update currentFile with the new file's metadata
+            isDirty = false;
+            isSaveAs = false;
+            fileInfo.textContent = `Editing: ${currentFile.name}`;
+            saveFileButton.disabled = false; // Enable the regular save button now
+            closeModal();
+        } else {
+            const error = await response.json();
+            alert(`Error saving file: ${error.error.message}`);
+        }
+    } catch (error) {
+        console.error(error);
+        alert("An error occurred while saving the file.");
+    }
+}
 
 // --- Event Listeners & Initialization ---
-openFileButton.addEventListener('click', () => showFilePicker());
+openFileButton.addEventListener('click', () => {
+    isSaveAs = false;
+    showFilePicker();
+});
+saveAsButton.addEventListener('click', () => {
+    if (saveAsButton.disabled) return;
+    isSaveAs = true;
+    showFilePicker();
+});
+saveAsConfirmButton.addEventListener('click', saveFileAs);
 modalCloseButton.addEventListener('click', closeModal);
 
 // Handle the redirect promise
