@@ -63,7 +63,7 @@ function newFile() {
     }
     currentFile = { name: "Untitled.txt", id: null }; // Temporary file object
     editor.setValue("");
-    setTimeout(() => editor.refresh(), 50); // Force a refresh to fix layout issues
+    setTimeout(updateEditorSize, 1); // Use the new layout manager
     editor.setOption("readOnly", false);
     fileInfo.textContent = "Editing: " + currentFile.name;
     saveFileButton.disabled = true; // Cannot save a new file without a path
@@ -92,11 +92,42 @@ function toggleWordWrap() {
     wordWrapButton.style.backgroundColor = !isWrapping ? '#a0a0a0' : '#e0e0e0';
 }
 
+function updateEditorSize() {
+    if (editor) {
+        editor.setSize(null, '100%');
+        editor.refresh();
+    }
+}
+
 // --- MSAL Authentication ---
-function updateUI() { /* Unchanged */ }
-function signIn() { msalInstance.loginRedirect({ scopes: ["User.Read", "Files.ReadWrite"] }); }
-function signOut() { /* Unchanged */ }
-async function getToken() { /* Unchanged */ }
+function updateUI() {
+    const account = msalInstance.getActiveAccount();
+    if (account) {
+        signinButton.style.display = "none";
+        signoutButton.style.display = "block";
+        mainContent.style.display = "flex";
+        setTimeout(updateEditorSize, 1); // Ensure editor is sized correctly on login
+    } else {
+        signinButton.style.display = "block";
+        signoutButton.style.display = "none";
+        mainContent.style.display = "none";
+    }
+}
+
+async function getToken() {
+    const account = msalInstance.getActiveAccount();
+    if (!account) return null;
+    const request = { scopes: ["User.Read", "Files.ReadWrite"], account: account };
+    try {
+        const response = await msalInstance.acquireTokenSilent(request);
+        return response.accessToken;
+    } catch (error) {
+        if (error instanceof msal.InteractionRequiredAuthError) {
+            msalInstance.acquireTokenRedirect(request);
+        }
+        return null;
+    }
+}
 
 // --- New Graph API File Picker ---
 async function showFilePicker(folderId = 'root', parentId = null) {
@@ -172,7 +203,7 @@ async function loadFile(fileItem) {
 
         const text = await response.text();
         editor.setValue(text);
-        setTimeout(() => editor.refresh(), 1); // Force a refresh to fix layout issues
+        setTimeout(updateEditorSize, 1); // Use the new layout manager
         editor.setOption("readOnly", false);
         saveFileButton.disabled = false;
         closeFileButton.disabled = false;
@@ -297,11 +328,7 @@ saveFileButton.addEventListener("click", saveFile);
 newFileButton.addEventListener("click", newFile);
 closeFileButton.addEventListener("click", closeFile);
 wordWrapButton.addEventListener("click", toggleWordWrap);
-window.addEventListener('resize', () => {
-    if (editor) {
-        editor.refresh();
-    }
-});
+window.addEventListener('resize', updateEditorSize);
 
 // Service worker registration
 if ('serviceWorker' in navigator) { /* Unchanged */ }

@@ -2,7 +2,7 @@
 // FINAL SERVICE WORKER - Uses Cache-First Strategy
 // =================================================================
 
-const CACHE_NAME = 'onedrive-text-editor-cache-v15'; // Incremented cache name
+const CACHE_NAME = 'onedrive-text-editor-cache-v16'; // Incremented cache name
 
 // On install, activate immediately
 self.addEventListener('install', event => {
