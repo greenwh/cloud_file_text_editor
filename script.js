@@ -63,7 +63,7 @@ function newFile() {
     }
     currentFile = { name: "Untitled.txt", id: null }; // Temporary file object
     editor.setValue("");
-    setTimeout(() => editor.refresh(), 1); // Force a refresh to fix layout issues
+    setTimeout(() => editor.refresh(), 50); // Force a refresh to fix layout issues
     editor.setOption("readOnly", false);
     fileInfo.textContent = "Editing: " + currentFile.name;
     saveFileButton.disabled = true; // Cannot save a new file without a path

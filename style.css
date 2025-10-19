@@ -24,6 +24,7 @@ header {
     align-items: center;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     flex-shrink: 0; /* Prevent header from shrinking */
+    height: 40px; /* Explicit height */
 }
 
 header h1 {
@@ -48,6 +49,7 @@ main {
     padding: 0.5rem;
     overflow: hidden; /* Prevent main from overflowing */
     min-height: 0; /* Crucial for flexbox children */
+    height: calc(100vh - 40px - 2rem); /* Full height minus header and padding */
 }
 
 #file-controls {
