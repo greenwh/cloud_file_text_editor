@@ -248,9 +248,7 @@ a5c2c52 - fix: Robustly fix layout and rendering bugs
 
 **Project Health**: Deployed and functional with known UI issues tracked in todo.txt
 
-**Known Issues** (10 items in todo.txt):
-- Word wrap option needed
-- Text overflow over line numbers
+**Known Issues** (0 items in todo.txt):
 - Scrolling clumsy (text doesn't always move properly)
 - Cursor sometimes outside text window
 

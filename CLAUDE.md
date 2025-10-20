@@ -49,13 +49,18 @@ User (Browser)
 
 | Function | Purpose | Key Details |
 |----------|---------|-------------|
+| `newFile()` | Create a new untitled file | Prompts for unsaved changes; initializes empty editor |
+| `closeFile()` | Close current file and clear editor | Prompts for unsaved changes |
+| `toggleWordWrap()` | Toggle line wrapping on/off | Updates button background color as visual indicator |
+| `updateEditorSize()` | Auto-size editor to container | Called on init, login, and window resize |
 | `updateUI()` | Render UI based on auth state | Shows/hides buttons and editor based on user login |
 | `signIn()` / `signOut()` | Authentication handlers | Uses MSAL OAuth 2.0 redirect flow |
 | `getToken()` | Acquire Graph API access token | Handles silent token acquisition and refresh |
 | `showFilePicker(folderId, parentId)` | Display OneDrive folder browser | Fetches children from Graph API; handles folder navigation |
 | `handleItemClick(item)` | Navigate folders or load files | Recursively navigates folder hierarchy or loads file content |
 | `loadFile(fileItem)` | Fetch file content and populate editor | Auto-detects language and loads CodeMirror mode |
-| `saveFile()` | Upload edited content back to OneDrive | Uses PUT request to Graph API `/content` endpoint |
+| `saveFile()` | Upload edited content back to OneDrive | Triggers Save As flow for unsaved files (no ID) |
+| `saveFileAs()` | Create new file in selected folder | Uses Graph API path-based upload endpoint |
 | `closeModal()` | Hide file picker modal | Resets breadcrumb path display |
 
 ### External Dependencies (via CDN)
@@ -78,9 +83,9 @@ User (Browser)
 
 ```
 .
-├── index.html                # HTML shell (62 lines)
-├── script.js                 # Main app logic (213 lines)
-├── style.css                 # Styling (174 lines)
+├── index.html                # HTML shell (70 lines)
+├── script.js                 # Main app logic (364 lines)
+├── style.css                 # Styling (190 lines)
 ├── service-worker.js         # PWA cache strategy (64 lines)
 ├── manifest.json             # PWA configuration
 ├── logo.svg                  # App icon
@@ -99,32 +104,41 @@ User (Browser)
 - **Config**: `script.js:8-18` defines MSAL configuration
 
 ### Editor Integration
-- CodeMirror initialized in `script.js:38-42`
+- CodeMirror initialized in `script.js:48-53`
 - Theme: Material Darker
 - Line numbers: Enabled
 - Read-only until file is loaded
 - Language mode loaded dynamically from CDN based on file extension
+- Word wrapping: Toggleable via "WW" button; off by default
+- Dirty flag tracking: Monitors unsaved changes and prompts user before close
 
 ### PWA & Service Worker
-- **Cache Version**: `v10` (in `service-worker.js:5`)
-- **Cache Strategy**: Cache-first for assets; network-only for Graph API
+- **Cache Version**: `v18` (in `service-worker.js:5`)
+- **Cache Strategy**: Cache-first for assets; network-only for Graph API calls
+- **Graph API Bypass**: `graph.microsoft.com` requests always use network (never cached)
 - **Offline Support**: App shell and editor cached; API calls require connection
 - When cache version changes, old caches are automatically cleaned up
+- Service worker registered with scope `./` for proper path handling
 
 ### Mobile Optimization
 - Responsive flexbox layout
 - Material Design aesthetic (blue theme #2196f3)
 - Touch-friendly modal interface with emoji icons (📄 file, 📁 folder, ⬆️ parent)
 
+## Recently Resolved Features
+
+1. ✅ **Word Wrap Toggle**: Added "WW" button to toggle line wrapping on/off
+2. ✅ **New File**: Create untitled file with "New" button
+3. ✅ **Close File**: Close current file with "Close" button
+4. ✅ **Save As**: Save new files to selected OneDrive folder with custom filename
+5. ✅ **Unsaved Changes Warning**: Prompts user before closing/switching files with pending edits
+6. ✅ **Dirty Flag Tracking**: Tracks editor modifications in real-time
+7. ✅ **Layout Manager**: Robust editor sizing on init, login, and window resize
+8. ✅ **Fix for Text Overlap**: Line number padding properly configured in CSS
+
 ## Known Issues (from todo.txt)
 
-1. **Text Overlap**: Text sometimes overlaps with line numbers when opening files
-2. **Scrolling Issues**: Clumsy scrolling; cursor can appear outside text window in white space
-3. **Missing Features**:
-   - Word wrap option not available
-   - No file close button (must open another file to switch)
-   - No "Save As" functionality
-   - No unsaved changes warning on navigation
+1. **Scrolling Issues**: Clumsy scrolling behavior may persist on some devices; cursor can appear outside text window in white space
 
 ## Common Development Tasks
 
@@ -141,8 +155,14 @@ If changing deployment URL:
 ### Changing the Cache Version (for PWA updates)
 Modify the version string in `service-worker.js:5`:
 ```javascript
-const CACHE_NAME = 'v11'; // Increment to invalidate old caches
+const CACHE_NAME = 'onedrive-text-editor-cache-v19'; // Increment to invalidate old caches
 ```
+
+### Working with Save As
+- When saving a new file (created with "New" button), the app triggers Save As flow
+- User selects folder in file picker and enters filename in input field at bottom
+- Files in Save As mode are disabled to prevent opening them instead of selecting folder
+- After save, file receives ID from Graph API response and becomes updatable via normal save
 
 ### Debugging Graph API Calls
 - Check browser Network tab for API requests to `graph.microsoft.com`
@@ -156,7 +176,13 @@ const CACHE_NAME = 'v11'; // Increment to invalidate old caches
 3. Register a test Azure App with `http://localhost:8080` as redirect URI
 4. Update `clientId` and `redirectUri` in `script.js`
 5. Open browser DevTools (F12) and check Console for errors
-6. Test authentication flow, file picking, and save operations
+6. Test authentication flow, file picking, save operations, and new features:
+   - Create new file with "New" button
+   - Edit text and verify dirty flag prevents accidental close
+   - Toggle word wrap with "WW" button
+   - Use "Save As" to save new file to a specific folder
+   - Close file with "Close" button
+   - Open existing file and use regular "Save" button
 
 ## Performance Considerations
 
