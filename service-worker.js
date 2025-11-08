@@ -2,7 +2,7 @@
 // FINAL SERVICE WORKER - Uses Cache-First Strategy
 // =================================================================
 
-const CACHE_NAME = 'onedrive-text-editor-cache-v18'; // Incremented cache name
+const CACHE_NAME = 'onedrive-text-editor-cache-v19'; // Updated for CodeMirror 6
 
 // On install, activate immediately
 self.addEventListener('install', event => {
@@ -34,8 +34,8 @@ self.addEventListener('fetch', event => {
   const requestUrl = new URL(event.request.url);
 
   // *** START OF FIX ***
-  // If the request is for the Microsoft Graph API, always fetch from the network.
-  if (requestUrl.hostname === 'graph.microsoft.com') {
+  // If the request is for the Microsoft Graph API or ESM CDN, always fetch from the network.
+  if (requestUrl.hostname === 'graph.microsoft.com' || requestUrl.hostname === 'esm.sh') {
     // Respond with a network request. Do not cache the result.
     event.respondWith(fetch(event.request));
     return;

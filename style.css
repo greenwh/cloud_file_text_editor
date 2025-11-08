@@ -77,20 +77,31 @@ main {
 
 #editor-container {
     flex-grow: 1;
-    position: relative; /* Needed for CodeMirror's own layout */
+    position: relative;
     border: 1px solid #ddd;
     border-radius: 4px;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
-.CodeMirror {
+/* CodeMirror 6 specific styling */
+.cm-editor {
     height: 100%;
     font-size: 16px;
 }
 
-/* Fix for text overlapping line numbers */
-.CodeMirror-line {
-    padding-left: 5px !important;
+.cm-scroller {
+    overflow: auto;
+    flex-grow: 1;
+}
+
+.cm-content {
+    padding: 4px 0;
+}
+
+.cm-line {
+    padding-left: 5px;
 }
 
 #file-info {

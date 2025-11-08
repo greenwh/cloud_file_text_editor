@@ -1,6 +1,24 @@
 // =================================================================
-// FINAL SCRIPT - Uses MS Graph API for File Picking
+// SCRIPT - Uses CodeMirror 6 and MS Graph API for File Picking
 // =================================================================
+
+// Import CodeMirror 6 modules
+import { EditorView, basicSetup } from "codemirror";
+import { EditorState, Compartment } from "@codemirror/state";
+import { javascript } from "@codemirror/lang-javascript";
+import { markdown } from "@codemirror/lang-markdown";
+import { python } from "@codemirror/lang-python";
+import { html } from "@codemirror/lang-html";
+import { css } from "@codemirror/lang-css";
+import { json } from "@codemirror/lang-json";
+import { xml } from "@codemirror/lang-xml";
+import { php } from "@codemirror/lang-php";
+import { java } from "@codemirror/lang-java";
+import { cpp } from "@codemirror/lang-cpp";
+import { rust } from "@codemirror/lang-rust";
+import { sql } from "@codemirror/lang-sql";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { selectAll } from "@codemirror/commands";
 
 // PASTE YOUR OWN CLIENT ID HERE
 const clientId = "72445ccf-a776-4d59-a35e-eb790a5db442";
@@ -34,9 +52,11 @@ const newFileButton = document.getElementById('new-file-button');
 const saveAsButton = document.getElementById('save-as-button');
 const closeFileButton = document.getElementById('close-file-button');
 const wordWrapButton = document.getElementById('word-wrap-button');
+const selectAllButton = document.getElementById('select-all-button');
 const saveAsContainer = document.getElementById('save-as-container');
 const saveAsFilenameInput = document.getElementById('save-as-filename');
 const saveAsConfirmButton = document.getElementById('save-as-confirm-button');
+const editorContainer = document.getElementById('editor-container');
 
 let editor;
 let currentFile = null;
@@ -44,31 +64,88 @@ let isDirty = false;
 let isSaveAs = false;
 let currentFolderId = 'root';
 
-// Initialize CodeMirror
-editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
-    lineNumbers: true,
-    theme: "material-darker",
-    readOnly: true,
-    lineWrapping: false // Word wrap is off by default
+// Compartments for dynamic configuration
+const languageCompartment = new Compartment();
+const readOnlyCompartment = new Compartment();
+const lineWrappingCompartment = new Compartment();
+
+// Track word wrap state
+let isWordWrapEnabled = false;
+
+// Initialize CodeMirror 6
+const startState = EditorState.create({
+    doc: "",
+    extensions: [
+        basicSetup,
+        oneDark,
+        languageCompartment.of([]),
+        readOnlyCompartment.of(EditorState.readOnly.of(true)),
+        lineWrappingCompartment.of([]), // Start with wrapping disabled
+        EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+                isDirty = true;
+            }
+        })
+    ]
 });
 
-editor.on("change", () => {
-    isDirty = true;
+editor = new EditorView({
+    state: startState,
+    parent: editorContainer
 });
+
+// Language map for file extensions
+const languageMap = {
+    'js': javascript,
+    'jsx': javascript,
+    'ts': javascript,
+    'tsx': javascript,
+    'md': markdown,
+    'markdown': markdown,
+    'py': python,
+    'html': html,
+    'htm': html,
+    'css': css,
+    'json': json,
+    'xml': xml,
+    'svg': xml,
+    'php': php,
+    'java': java,
+    'cpp': cpp,
+    'c': cpp,
+    'h': cpp,
+    'hpp': cpp,
+    'rs': rust,
+    'sql': sql,
+};
+
+// Get language extension for file
+function getLanguageExtension(filename) {
+    const extension = filename.split('.').pop().toLowerCase();
+    const langFunc = languageMap[extension];
+    return langFunc ? langFunc() : [];
+}
 
 // --- New File Management Functions ---
 function newFile() {
     if (isDirty && !confirm("You have unsaved changes. Are you sure you want to start a new file?")) {
         return;
     }
-    currentFile = { name: "Untitled.txt", id: null }; // Temporary file object
-    editor.setValue("");
-    setTimeout(updateEditorSize, 1); // Use the new layout manager
-    editor.setOption("readOnly", false);
+    currentFile = { name: "Untitled.txt", id: null };
+
+    editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: "" },
+        effects: [
+            readOnlyCompartment.reconfigure(EditorState.readOnly.of(false)),
+            languageCompartment.reconfigure([])
+        ]
+    });
+
     fileInfo.textContent = "Editing: " + currentFile.name;
-    saveFileButton.disabled = true; // Cannot save a new file without a path
+    saveFileButton.disabled = true;
     saveAsButton.disabled = false;
     closeFileButton.disabled = false;
+    selectAllButton.disabled = false;
     isDirty = false;
 }
 
@@ -77,26 +154,36 @@ function closeFile() {
         return;
     }
     currentFile = null;
-    editor.setValue("");
-    editor.setOption("readOnly", true);
+
+    editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: "" },
+        effects: [
+            readOnlyCompartment.reconfigure(EditorState.readOnly.of(true)),
+            languageCompartment.reconfigure([])
+        ]
+    });
+
     fileInfo.textContent = "No file selected.";
     saveFileButton.disabled = true;
     saveAsButton.disabled = true;
     closeFileButton.disabled = true;
+    selectAllButton.disabled = true;
     isDirty = false;
 }
 
 function toggleWordWrap() {
-    const isWrapping = editor.getOption("lineWrapping");
-    editor.setOption("lineWrapping", !isWrapping);
-    wordWrapButton.style.backgroundColor = !isWrapping ? '#a0a0a0' : '#e0e0e0';
+    isWordWrapEnabled = !isWordWrapEnabled;
+    editor.dispatch({
+        effects: lineWrappingCompartment.reconfigure(
+            isWordWrapEnabled ? EditorView.lineWrapping : []
+        )
+    });
+    wordWrapButton.style.backgroundColor = isWordWrapEnabled ? '#a0a0a0' : '#e0e0e0';
 }
 
-function updateEditorSize() {
-    if (editor) {
-        editor.setSize(null, '100%');
-        editor.refresh();
-    }
+function selectAllText() {
+    selectAll(editor);
+    editor.focus();
 }
 
 // --- MSAL Authentication ---
@@ -118,7 +205,6 @@ function updateUI() {
         signinButton.style.display = "none";
         signoutButton.style.display = "block";
         mainContent.style.display = "flex";
-        setTimeout(updateEditorSize, 1); // Ensure editor is sized correctly on login
     } else {
         signinButton.style.display = "block";
         signoutButton.style.display = "none";
@@ -155,20 +241,20 @@ async function showFilePicker(folderId = 'root', parentId = null) {
     }
 
     const url = `https://graph.microsoft.com/v1.0/me/drive/${folderId}/children?$select=id,name,folder,file,parentReference`;
-    
+
     try {
         const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
         if (!response.ok) throw new Error('Failed to fetch files.');
 
         const data = await response.json();
-        fileList.innerHTML = ''; // Clear loading message
+        fileList.innerHTML = '';
 
         // Add 'Go Up' item if not in the root
         if (folderId !== 'root' && parentId) {
             const parentItem = document.createElement('li');
             parentItem.textContent = '..';
             parentItem.className = 'parent';
-            parentItem.onclick = () => showFilePicker(`items/${parentId}`, null); // Simplified parent navigation
+            parentItem.onclick = () => showFilePicker(`items/${parentId}`, null);
             fileList.appendChild(parentItem);
         }
 
@@ -178,7 +264,7 @@ async function showFilePicker(folderId = 'root', parentId = null) {
             listItem.textContent = item.name;
             listItem.className = item.folder ? 'folder' : 'file';
             if (isSaveAs && item.file) {
-                listItem.classList.add('disabled'); // Disable files in Save As mode
+                listItem.classList.add('disabled');
             } else {
                 listItem.onclick = () => handleItemClick(item);
             }
@@ -192,11 +278,9 @@ async function showFilePicker(folderId = 'root', parentId = null) {
 
 function handleItemClick(item) {
     if (item.folder) {
-        // If it's a folder, navigate into it
         showFilePicker(`items/${item.id}`, item.parentReference.id);
         modalPath.textContent = item.name;
     } else if (!isSaveAs) {
-        // If it's a file and not in Save As mode, load it
         loadFile(item);
         closeModal();
     }
@@ -206,28 +290,30 @@ async function loadFile(fileItem) {
     const token = await getToken();
     if (!token) return;
 
-    currentFile = fileItem; // Save file metadata
+    currentFile = fileItem;
     const url = `https://graph.microsoft.com/v1.0/me/drive/items/${fileItem.id}/content`;
-    
+
     try {
         const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
         if (!response.ok) throw new Error('Failed to download file.');
 
         const text = await response.text();
-        editor.setValue(text);
-        setTimeout(updateEditorSize, 1); // Use the new layout manager
-        editor.setOption("readOnly", false);
+        const langExtension = getLanguageExtension(currentFile.name);
+
+        editor.dispatch({
+            changes: { from: 0, to: editor.state.doc.length, insert: text },
+            effects: [
+                readOnlyCompartment.reconfigure(EditorState.readOnly.of(false)),
+                languageCompartment.reconfigure(langExtension)
+            ]
+        });
+
         saveFileButton.disabled = false;
         closeFileButton.disabled = false;
         saveAsButton.disabled = false;
+        selectAllButton.disabled = false;
         fileInfo.textContent = `Editing: ${currentFile.name}`;
         isDirty = false;
-
-        const modeInfo = CodeMirror.findModeByExtension(currentFile.name.split('.').pop());
-        if (modeInfo) {
-            CodeMirror.modeURL = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/%N/%N.min.js";
-            CodeMirror.requireMode(modeInfo.mode, () => editor.setOption("mode", modeInfo.mime));
-        }
     } catch (error) {
         console.error(error);
         alert('Error loading file content.');
@@ -237,7 +323,7 @@ async function loadFile(fileItem) {
 function closeModal() {
     modal.classList.add('modal-hidden');
     modalPath.textContent = 'OneDrive';
-    isSaveAs = false; // Reset Save As mode on close
+    isSaveAs = false;
 }
 
 async function saveFile() {
@@ -253,7 +339,7 @@ async function saveFile() {
     const token = await getToken();
     if (!token) return;
 
-    const content = editor.getValue();
+    const content = editor.state.doc.toString();
     const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${currentFile.id}/content`;
 
     try {
@@ -264,10 +350,10 @@ async function saveFile() {
         });
         if (response.ok) {
             alert("File saved successfully!");
-            isDirty = false; // Reset dirty flag
-        } else { 
-            const error = await response.json(); 
-            alert(`Error saving file: ${error.error.message}`); 
+            isDirty = false;
+        } else {
+            const error = await response.json();
+            alert(`Error saving file: ${error.error.message}`);
         }
     } catch (error) {
         console.error(error);
@@ -284,8 +370,7 @@ async function saveFileAs() {
     const token = await getToken();
     if (!token) return;
 
-    const content = editor.getValue();
-    // Use the Graph API endpoint for creating a new file in a specific folder
+    const content = editor.state.doc.toString();
     const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${currentFolderId}:/${filename}:/content`;
 
     try {
@@ -298,11 +383,11 @@ async function saveFileAs() {
         if (response.ok) {
             alert("File saved successfully!");
             const newFileData = await response.json();
-            currentFile = newFileData; // Update currentFile with the new file's metadata
+            currentFile = newFileData;
             isDirty = false;
             isSaveAs = false;
             fileInfo.textContent = `Editing: ${currentFile.name}`;
-            saveFileButton.disabled = false; // Enable the regular save button now
+            saveFileButton.disabled = false;
             closeModal();
         } else {
             const error = await response.json();
@@ -340,24 +425,15 @@ saveFileButton.addEventListener("click", saveFile);
 newFileButton.addEventListener("click", newFile);
 closeFileButton.addEventListener("click", closeFile);
 wordWrapButton.addEventListener("click", toggleWordWrap);
-window.addEventListener('resize', updateEditorSize);
+selectAllButton.addEventListener("click", selectAllText);
 
 // Service worker registration
-
 if ('serviceWorker' in navigator) {
-
     window.addEventListener('load', () => {
-
         navigator.serviceWorker.register('service-worker.js', { scope: './' }).then(registration => {
-
             console.log('ServiceWorker registration successful with scope: ', registration.scope);
-
         }, err => {
-
             console.log('ServiceWorker registration failed: ', err);
-
         });
-
     });
-
 }

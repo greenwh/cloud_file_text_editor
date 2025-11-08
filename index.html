@@ -8,8 +8,6 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2196f3">
     <link rel="apple-touch-icon" href="icons/icon-192x192.png">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/material-darker.min.css">
 </head>
 <body>
 
@@ -30,13 +28,12 @@
                 <button id="save-as-button" disabled>Save As</button>
                 <button id="close-file-button" disabled>Close</button>
                 <button id="word-wrap-button">WW</button>
+                <button id="select-all-button" disabled>Select All</button>
             </div>
             <div id="file-info">
                 <p>No file selected.</p>
             </div>
-            <div id="editor-container">
-                <textarea id="editor"></textarea>
-            </div>
+            <div id="editor-container"></div>
         </main>
     </div>
 
@@ -59,12 +56,35 @@
 
     <!-- MSAL.js -->
     <script src="https://alcdn.msauth.net/browser/2.14.2/js/msal-browser.min.js"></script>
-    <!-- CodeMirror -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/meta.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/mode/loadmode.js"></script>
+
+    <!-- Import Map for CodeMirror 6 ESM modules -->
+    <script type="importmap">
+    {
+        "imports": {
+            "codemirror": "https://esm.sh/codemirror@6.0.1",
+            "@codemirror/view": "https://esm.sh/@codemirror/view@6.36.0",
+            "@codemirror/state": "https://esm.sh/@codemirror/state@6.4.1",
+            "@codemirror/lang-javascript": "https://esm.sh/@codemirror/lang-javascript@6.2.2",
+            "@codemirror/lang-markdown": "https://esm.sh/@codemirror/lang-markdown@6.3.1",
+            "@codemirror/lang-python": "https://esm.sh/@codemirror/lang-python@6.1.6",
+            "@codemirror/lang-html": "https://esm.sh/@codemirror/lang-html@6.4.9",
+            "@codemirror/lang-css": "https://esm.sh/@codemirror/lang-css@6.3.1",
+            "@codemirror/lang-json": "https://esm.sh/@codemirror/lang-json@6.0.1",
+            "@codemirror/lang-xml": "https://esm.sh/@codemirror/lang-xml@6.1.0",
+            "@codemirror/lang-php": "https://esm.sh/@codemirror/lang-php@6.0.1",
+            "@codemirror/lang-java": "https://esm.sh/@codemirror/lang-java@6.0.1",
+            "@codemirror/lang-cpp": "https://esm.sh/@codemirror/lang-cpp@6.0.2",
+            "@codemirror/lang-rust": "https://esm.sh/@codemirror/lang-rust@6.0.1",
+            "@codemirror/lang-sql": "https://esm.sh/@codemirror/lang-sql@6.8.1",
+            "@codemirror/language": "https://esm.sh/@codemirror/language@6.10.3",
+            "@codemirror/commands": "https://esm.sh/@codemirror/commands@6.7.1",
+            "@codemirror/theme-one-dark": "https://esm.sh/@codemirror/theme-one-dark@6.1.2"
+        }
+    }
+    </script>
+
     <!-- Main App Script -->
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
 
 </body>
 </html>
