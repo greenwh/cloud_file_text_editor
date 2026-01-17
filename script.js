@@ -3,8 +3,13 @@
 // =================================================================
 
 // Import CodeMirror 6 modules
-import { EditorView, basicSetup } from "codemirror";
+import { EditorView, keymap, highlightSpecialChars, drawSelection, highlightActiveLine, dropCursor, rectangularSelection, crosshairCursor, lineNumbers, highlightActiveLineGutter } from "@codemirror/view";
 import { EditorState, Compartment } from "@codemirror/state";
+import { defaultHighlightStyle, syntaxHighlighting, indentOnInput, bracketMatching, foldGutter, foldKeymap } from "@codemirror/language";
+import { defaultKeymap, history, historyKeymap, indentWithTab, selectAll } from "@codemirror/commands";
+import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import { lintKeymap } from "@codemirror/lint";
 import { javascript } from "@codemirror/lang-javascript";
 import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
@@ -18,7 +23,37 @@ import { cpp } from "@codemirror/lang-cpp";
 import { rust } from "@codemirror/lang-rust";
 import { sql } from "@codemirror/lang-sql";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { selectAll } from "@codemirror/commands";
+
+// Create basic setup extensions manually
+const basicExtensions = [
+    lineNumbers(),
+    highlightActiveLineGutter(),
+    highlightSpecialChars(),
+    history(),
+    foldGutter(),
+    drawSelection(),
+    dropCursor(),
+    EditorState.allowMultipleSelections.of(true),
+    indentOnInput(),
+    syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+    bracketMatching(),
+    closeBrackets(),
+    autocompletion(),
+    rectangularSelection(),
+    crosshairCursor(),
+    highlightActiveLine(),
+    highlightSelectionMatches(),
+    keymap.of([
+        ...closeBracketsKeymap,
+        ...defaultKeymap,
+        ...searchKeymap,
+        ...historyKeymap,
+        ...foldKeymap,
+        ...completionKeymap,
+        ...lintKeymap,
+        indentWithTab
+    ])
+];
 
 // PASTE YOUR OWN CLIENT ID HERE
 const clientId = "72445ccf-a776-4d59-a35e-eb790a5db442";
@@ -76,7 +111,7 @@ let isWordWrapEnabled = false;
 const startState = EditorState.create({
     doc: "",
     extensions: [
-        basicSetup,
+        basicExtensions,
         oneDark,
         languageCompartment.of([]),
         readOnlyCompartment.of(EditorState.readOnly.of(true)),

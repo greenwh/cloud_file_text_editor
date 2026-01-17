@@ -2,7 +2,7 @@
 // FINAL SERVICE WORKER - Uses Cache-First Strategy
 // =================================================================
 
-const CACHE_NAME = 'onedrive-text-editor-cache-v24'; // Updated CodeMirror to v6.8.8 to fix module conflicts
+const CACHE_NAME = 'onedrive-text-editor-cache-v25'; // Fixed CodeMirror 6 imports by replacing basicSetup with manual extensions
 
 // On install, activate immediately
 self.addEventListener('install', event => {
